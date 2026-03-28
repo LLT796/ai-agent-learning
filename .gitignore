@@ -1,0 +1,12 @@
+# 虚拟环境
+venv/
+.venv/
+env/
+ENV/
+
+# 环境变量
+.env
+
+# IDE
+.vscode/
+.idea/
