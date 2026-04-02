@@ -91,6 +91,7 @@ def split_documents(docs, chunk_size=500, chunk_overlap=100):
     # 打印前 3 个块的预览
     for i, chunk in enumerate(chunks[:3]):
         preview = chunk.page_content[:80].replace("\n", " ")
+        print(f"   块 {i}: [{len(chunk.page_content)} 字符] {preview}...")
 
     return chunks
 
