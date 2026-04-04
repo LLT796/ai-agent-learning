@@ -27,12 +27,14 @@ embeddings = OpenAIEmbeddings(
     api_key=DASHSCOPE_API_KEY,
     base_url=DASHSCOPE_BASE_URL,
     model="text-embedding-v3",
+    check_embedding_ctx_length=False,
+    chunk_size=10,  # 限制每批最多发10条
 )
 
 def load_and_split(chunk_size: int, chunk_overlap: int):
     """加载文档并按指定参数分块"""
     doc_path = Path(__file__).parent / "docs" / "product_knowledge.txt"
-    docs = TextLoader(str(doc_path), encoding="utf-9").load()
+    docs = TextLoader(str(doc_path), encoding="utf-8").load()
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
@@ -61,7 +63,7 @@ def build_vectorstore(chunks, name: str):
 
 def test_retrieval(vectorstore, question: str, k=3):
     """检索并返回结果摘要"""
-    retriever = vectorstore.as_retriever(search_kwargs={"k", k})
+    retriever = vectorstore.as_retriever(search_kwargs={"k": k})
     results = retriever.invoke(question)
     return results
 
