@@ -41,6 +41,7 @@ embeddings = OpenAIEmbeddings(
     api_key=DASHSCOPE_API_KEY,
     base_url=DASHSCOPE_BASE_URL,
     model="text-embedding-v3",  # 通义千问的 Embedding 模型
+    check_embedding_ctx_length=False
 )
 
 # ============================================================
@@ -54,7 +55,7 @@ def load_documents(doc_path: str):
         loader = PyPDFLoader(str(path))
         print(f"使用 pyPDFLoader 加载：{path.name}")
     elif path.suffix == ".txt":
-        loader = TextLoader(str(path), encodings="utf-8")
+        loader = TextLoader(str(path), encoding="utf-8")
         print(f"使用 TextLoader 加载：{path.name}")
     else:
         raise ValueError(f"不支持的文件格式：{path.suffix}")
@@ -135,7 +136,7 @@ def create_retriever(vectorstore, k=3):
     """
     retriever = vectorstore.as_retriever(
         search_type="similarity",   # 基于余弦相似度
-        search_kwargs={"k", k},     # 返回最相似的 K 个块
+        search_kwargs={"k": k},     # 返回最相似的 K 个块
     )
     print(f"    检索器创建完成 (top-{k}")
     return retriever
