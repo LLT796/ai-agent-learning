@@ -262,7 +262,8 @@ def product_comparison(product_a: str, product_b: str) -> str:
 if __name__ == "__main__":
     # 默认使用 stdio transport（标准输入输出）
     # 适合本地测试和 Claude Desktop 集成
-    mcp.run()
+    # mcp.run()
+    mcp.run(transport="streamable-http")
 
 
 
