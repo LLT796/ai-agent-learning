@@ -131,3 +131,58 @@ class LongTermMemory:
     实现：每次对话结束后，把对话摘要存入 ChromaDB
             新对话开始时，用用户的第一个问题检索相关的历史交互
     """
+
+    def __int__(self, persist_dir: str = None):
+        if persist_dir is None:
+            persist_dir = str(Path(__file__).parent / "memory_store")
+
+        self.embeddings = OpenAIEmbeddings(
+            api_key=DASHSCOPE_API_KEY,
+            base_url=DASHSCOPE_BASE_URL,
+            model="text-embedding-v3",
+        )
+        self.vectorstore = Chroma(
+            collection_name="conversation_memory",
+            embedding_function=self.embeddings,
+            persist_directory=persist_dir,
+        )
+
+    def save_conversation(self, session_id: str, messages: list[AIMessage]):
+        """保存一次对话的摘要到长期记忆
+            Args:
+                session_id: 会话ID，用于区分不同对话
+                messages: 对话消息列表
+        """
+        # 提取对话中的关键信息
+        user_questions = []
+        agent_answers = []
+
+        for msg in messages:
+            if isinstance(msg, HumanMessage):
+                user_questions.append(msg.content)
+            elif isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
+                agent_answers.append(msg.content[:200])
+
+        if not user_questions:
+            return
+
+        # 构建摘要文档
+        summary = (
+            f"用户问题: {'; '.join(user_questions)}\n"
+            f"助手回答: {'; '.join(agent_answers[:3])}"
+        )
+
+        self.vectorstore.add_texts(
+            texts=[summary],
+            metadatas=[{"session_id": session_id}],
+        )
+
+    def recall(self, query: str, k: int = 3) -> list[str]:
+        """根据当前问题，召回相关的历史对话
+            Args:
+                query: 当前用户的问题
+                k: 召回几条历史记录
+        """
+        results = self.vectorstore.similarity_search(query, k=k)
+        return [doc.page_content for doc in results]
+
