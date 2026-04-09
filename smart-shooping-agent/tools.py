@@ -88,7 +88,7 @@ def search_products(
     for product in PRODUCTS.values():
         if category and product["category"] != category:
             continue
-        if max_price and product["max_price"] != max_price:
+        if max_price and product["price"] != max_price:
             continue
         if min_rating > 0 and product["rating"] < min_rating:
             continue
@@ -109,17 +109,126 @@ def search_products(
     output += "\n💡 使用 get_product_detail(product_id) 可查看某个商品的完整详情"
     return output
 
+# ============================================================
+# 工具 2: 商品详情（第二步：拿到 ID 后查详情）
+# ============================================================
+@tool
+def get_product_detail(product_id: str) -> str:
+    """获取某个商品的完整详情。需要先通过 search_products 获取商品ID。
+    Args:
+        product_id: 商品ID，如 SKU001、SKU003。从搜索结果中获取。
+    """
+    product = PRODUCTS.get(product_id.upper().strip())
+    if not product:
+        available = ", ".join(PRODUCTS.keys())
+        return f"❌ 商品ID '{product_id}' 不存在。可用的ID有：{available}"
 
+    discount = round((1 - product["price"] / product["original_price"]) * 100)
+    return (
+        f"📦 {product['name']}\n"
+        f"ID: {product['id']} | 品牌: {product['brand']} | 分类: {product['category']}\n"
+        f"现价: ¥{product['price']}（原价¥{product['original_price']}，优惠{discount}%）\n"
+        f"评分: {product['rating']}/5.0 | 库存: {product['stock']}件\n"
+        f"卖点: {', '.join(product['features'])}\n"
+        f"详情: {product['description']}"
+    )
 
+# ============================================================
+# 工具 3: 商品对比（需要两个商品的 ID）
+# ============================================================
+@tool
+def compare_products(product_id_a: str, product_id_b: str) -> str:
+    """对比两个商品的价格、评分、特点。需要提供两个商品的ID。
+    Args:
+        product_id_a: 第一个商品ID
+        product_id_b: 第二个商品ID
+    """
+    a = PRODUCTS.get(product_id_a.upper().strip())
+    b = PRODUCTS.get(product_id_b.upper().strip())
 
+    if not a:
+        return f"❌ 商品 {product_id_a} 不存在"
+    if not b:
+        return f"❌ 商品 {product_id_b} 不存在"
 
+    price_diff = abs(a["price"] - b["price"])
+    cheaper = a["name"] if a["price"] < b["price"] else b["name"]
+    better_rated = a["name"] if a["rating"] > b["rating"] else b["name"]
 
+    return (
+        f"📊 商品对比\n\n"
+        f"【A】{a['name']}\n"
+        f"  价格: ¥{a['price']} | 评分: {a['rating']} | 库存: {a['stock']}件\n"
+        f"  卖点: {', '.join(a['features'])}\n\n"
+        f"【B】{b['name']}\n"
+        f"  价格: ¥{b['price']} | 评分: {b['rating']} | 库存: {b['stock']}件\n"
+        f"  卖点: {', '.join(b['features'])}\n\n"
+        f"💰 价格差: ¥{price_diff}（{cheaper} 更便宜）\n"
+        f"⭐ 评分更高: {better_rated}"
+    )
 
+# ============================================================
+# 工具 4: 价格计算
+# ============================================================
+@tool
+def calculate_price(expression: str) -> str:
+    """计算价格相关的数学表达式。用于折扣计算、差价计算、满减计算等。
+    Args:
+        expression: 数学表达式，如 '1699 * 0.85' 或 '1999 - 1699' 或 '899 + 1199'
+    """
+    try:
+        # 安全检查: 只允许数字和基本运算符
+        allowed = set("0123456789.+-*/() ")
+        if not all(c in allowed for c in expression):
+            return f"❌ 表达式包含非法字符，只允许数字和 +-*/() 运算符"
+        result = eval(expression)
+        if isinstance(result, float):
+            result = round(result, 2)
+        return f" {expression} = {result}"
+    except Exception as e:
+        return f"❌ 计算错误: {e}。请检查表达式格式。"
 
+# ============================================================
+# 工具 5: 获取推荐理由（结合用户需求生成推荐话术）
+# ============================================================
+@tool
+def get_recommendation_reason(product_id: str, user_need: str) -> str:
+    """根据用户需求，生成某个商品的推荐理由。在最终推荐环节使用。
+    Args:
+        product_id: 要推荐的商品ID
+        user_need: 用户的原始需求描述，如"跑步用，预算1000以内"
+    """
+    product = PRODUCTS.get(product_id.upper().strip())
+    if not product:
+        return f"商品 {product_id} 不存在"
 
+    discount = round((1 - product["price"] / product["original_price"]) * 100)
 
+    # 构建推荐要素
+    reasons = []
+    if discount > 0:
+        reasons.append(f"当前优惠{discount}%，比原价省¥{product['original_price'] - product['price']}")
+    if product["rating"] >= 4.5:
+        reasons.append(f"用户评分高达{product['rating']}分")
+    if product["stock"] > 100:
+        reasons.append("库存充足，下单即发")
+    elif product["stock"] < 50:
+        reasons.append(f"库存仅剩{product['stock']}件，建议尽快下单")
+    reasons.append(f"核心卖点：{', '.join(product['features'])}")
 
+    return (
+            f"🎯 推荐商品: {product['name']}\n"
+            f"用户需求: {user_need}\n"
+            f"推荐理由:\n" + "\n".join(f"  {i + 1}. {r}" for i, r in enumerate(reasons))
+    )
 
-
+# 导出所有工具的列表，方便 graph.py 引用
+ALL_TOOLS = [
+    search_products,
+    get_product_detail,
+    compare_products,
+    calculate_price,
+    get_recommendation_reason,
+]
 
 
