@@ -59,7 +59,7 @@ class ShortTermMemory:
             return messages
 
         # 保留最近的 max_pairs * 4 条非系统消息
-        trimmed = non_system[-(max_pairs * 4)]
+        trimmed = non_system[-(max_pairs * 4):]
         return system_msgs + trimmed
 
     @staticmethod
@@ -132,7 +132,7 @@ class LongTermMemory:
             新对话开始时，用用户的第一个问题检索相关的历史交互
     """
 
-    def __int__(self, persist_dir: str = None):
+    def __init__(self, persist_dir: str = None):
         if persist_dir is None:
             persist_dir = str(Path(__file__).parent / "memory_store")
 
@@ -185,4 +185,58 @@ class LongTermMemory:
         """
         results = self.vectorstore.similarity_search(query, k=k)
         return [doc.page_content for doc in results]
+
+# ============================================================
+# 三、工作记忆（Working Memory / Scratchpad）
+# ============================================================
+class WorkingMemory:
+    """工作记忆：Agent 推理过程中的临时笔记本
+
+    用途：
+    1. 记录已经从工具获取的信息（避免重复调用）
+    2. 记录用户的偏好（提取的结构化需求）
+    3. 记录待完成的子任务
+
+    实现：一个简单的字典，存在 AgentState 中
+    每轮推理时作为额外上下文注入到 Prompt
+    """
+    def __init__(self):
+        self.notes: dict[str, str] = {}
+        self.user_preferences: dict[str, str] = {}
+        self.collected_products: list[str] = []
+
+    def add_note(self, key: str, value: str):
+        """添加笔记"""
+        self.notes[key] = value
+
+    def set_preference(self, key: str, value: str):
+        """记录用户偏好"""
+        self.user_preferences[key] = value
+
+    def add_product(self, product_id: str):
+        """记录已查看的商品"""
+        if product_id not in self.collected_products:
+            self.collected_products.append(product_id)
+
+    def to_context_string(self) -> str:
+        """转成文本，注入到 Prompt中"""
+        parts = []
+
+        if self.user_preferences:
+            prefs = "，".join(f"{k}: {v}" for k, v in self.user_preferences.items())
+            parts.append(f"【用户偏好】{parts}")
+
+        if self.collected_products:
+            parts.append(f"【已查看商品】{', '.join(self.collected_products)}")
+
+        if self.notes:
+            notes = "; ".join(f"{k}: {v}" for k, v in self.notes.items())
+            parts.append(f"【笔记】{notes}")
+        return "\n".join(parts) if parts else ""
+
+    def clear(self):
+        """清空工作记忆（新会话时调用）"""
+        self.notes.clear()
+        self.user_preferences.clear()
+        self.collected_products.clear()
 
